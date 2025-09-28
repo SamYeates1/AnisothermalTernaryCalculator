@@ -7,7 +7,7 @@ in conjunction with a second script; Anisothermal Ternary Generator.
 
 This code was written by Sam Yeates (The University of Sheffield) as part of his PhD, supervised by Prof. Russell Goodall 
 and Prof. Katerina Christofidou. 
-This version of the script was finalised on 28/04/2025.
+This version of the script was finalised on 11/06/2025.
 
 DISCLAIMER - This code does not carry out any CALPHAD or Thermodynamic modelling. It purely uses TC_Python to extract
 phase data. Therefore data outputted from this code is only ever as accurate as ThermoCalc. Users should ensure they 
@@ -24,60 +24,42 @@ from scipy.ndimage import gaussian_filter
 from skimage import measure
 import plotly.io as pio
 pio.renderers.default = 'browser'
+import tkinter as tk
+from tkinter import filedialog
+import pandas as pd
 
 
+#%% Select your file
 
-#%% Select you file
+"""
+# Create a hidden root window (we only want the file dialog)
+root = tk.Tk()
+root.withdraw()
 
-#Hypothetical Datasets
-#filename = 'Test Eutectic Valley.csv'
-#filename = 'ternary_dataset_eutectic_line_1k.csv'
-
-#Metallic Ternary Test Files
-#filename = 'V_Cr_Ti-300K-2300K-25K step.csv'
-#filename = 'V_Cr_Ti_400K_2300K-25K step.csv'
-#filename = 'Al_Fe_Si_700K-1300K_25K step.csv'
-#filename = 'Zn-Cu-Al-400K-1000K_25K step.csv'
-#filename = 'Cu_Ni_Sb_700K-1800K_25K step.csv'
-#filename = 'Al_Cu_Ni_700K-1800K_25K step.csv'
-#filename = 'Ti_Al_V_700K_2300K-1wt%-25K step.csv'
-#filename = 'Ti_Al_V_700K_2300K-5wt%-25K step.csv'
-#filename = 'Nb_Ti_Ni_300K_1300K-25K step.csv'
+# Open the file dialog
+filename = filedialog.askopenfilename(
+    title="Select a CSV file",
+    filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+)
 
 
-#Metallic Partial Ternary Test Files
-#filename = 'CuCr(0-2wt%)_Zr(0-2wt%)_600K_1400K-20K step.csv'
-#filename = 'V_Cr(0-20wt%)_Ti(0-20wt%)_400K_600K_25K step.csv'
-#filename = 'V_Cr(0-20wt%)_Ti(0-40wt%)_1000K_1800K-25K step.csv'
-#filename = 'V_Cr(0-50wt%)_Ti(0-60wt%)_400K_500K-25K step.csv'
+# Open file picker and assign selected file path to 'filename'
+filename = filedialog.askopenfilename(
+    title="Select a CSV file",
+    filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+)
 
-#'Interesting' Datasets
-
-#Psuedo Ternary Test Files
-#filename = 'Ta-18Ti-17V_W_Cr_700K_1200K-25K step.csv'
-filename = 'Ta-18V-17Ti_W(0-10wt%,0.001)_Cr(0-10wt%,0.001)-600K-1075K-25K step.csv'
-#filename = "V-4Cr-4Ti_Al_Zn_800K-900K_20K step.csv"
-#filename  = 'V_C(0-0.001wt%)_N(0-0.001wt%)-600K-1075K-25K step.csv'
-
-#V44:C:N
-#filename = 'V-4Cr-4Ti_C(0-0.001wt%)_N(0-0.001wt%)-600K-700K-25K step.csv'
-#filename = 'V-4Cr-4Ti_C(0-0.001wt%)_N(0-0.001wt%)-600K-1600K-25K step.csv'
-#filename = 'V-4Cr-4Ti_C(0-0.001wt%)_N(0-0.001wt%)-275K-1075K-20K step.csv'
-#filename = 'V-4Cr-4Ti_C(0-0.001wt%)_N(0-0.001wt%)_0.00001wt%-600K-800K-25K step.csv'
-#filename = 'V-4Cr-4Ti_C(0-0.001wt%)_N(0-0.001wt%)- 0.000025wt% -600K-1075K-25K step.csv'
-
-#V44:O:N
-#filename = 'V-4Cr-4Ti_O(0-0.001wt%)_N(0-0.001wt%)-300K-1600K-25K step.csv'
-
-#V44:C:O
-#filename = 'V-4Cr-4Ti_C(0-0.001wt%)_O(0-0.001wt%)-300K-1600K-25K step.csv' #Initial 0.00005wt% run
-#filename = 'V-4Cr-4Ti_C(0-0.001wt%)_O(0-0.001wt%)_0.00001wt%-400K-1050K-25K step.csv' #0.00001wt% hi res run
-#filename = 'V-4Cr-4Ti_C(0-0.001wt%)_O(0-0.001wt%)_0.00005wt%_2TPa-400K-1050K-25K step' #Part of pressure effect test
-#filename = 'V-4Cr-4Ti_C(0-0.001wt%)_O(0-0.001wt%)_0.00005wt%_2GPa-400K-1050K-25K step' #Part of pressure effect test
-#filename = 'V-4Cr-4Ti_C(0-0.001wt%)_O(0-0.001wt%)_0.00005wt%_2MPa-400K-1050K-25K step' #Part of pressure effect test
-#filename = 'V-4Cr-4Ti_C(0-0.001wt%)_O(0-0.001wt%)_0.00005wt%_100MPa-400K-1050K-25K step' #Part of pressure effect test
+print(f"Selected file: {filename}")
+"""
+filename = "Ta-30V-30Ti-5W-5Cr_C(0-0.02at%,2e-06)_N(0-0.02at%,2e-06)-1000K-1400K-10K step_with_phase_fractions.csv"
+if "with_phase_fractions" in filename:
+    PlotPhaseFraction = True
+    print("With Phase Fractions")
+else: 
+    PlotPhaseFraction = False
+    print("Without Phase Fractions")
 #%%
-def PlotterFunction(axis1_list,axis2_list,axis3_list, PhaseList, TempList, AxisLabels,filename,TempRes=None, sigma=None):
+def PlotterFunction(axis1_list,axis2_list,axis3_list, PhaseList,PhaseFractionList,PhaseCompositionList, TempList, AxisLabels,filename, CompType, TempRes=None, sigma=None):
     
 
     A1, A2, A3 = AxisLabels
@@ -226,6 +208,14 @@ def PlotterFunction(axis1_list,axis2_list,axis3_list, PhaseList, TempList, AxisL
     UniquePhases = sorted(set(PhaseList))
     NumUniquePhases = len(UniquePhases)
     PhaseToInt = {ph: i for i,ph in enumerate(UniquePhases)}
+    #print(PhaseToInt)    
+
+    if PlotPhaseFraction:
+        UniqueFractions = sorted(set(PhaseFractionList))
+        PhaseFractionToInt = {ph: i for i,ph in enumerate(UniqueFractions)}
+        UniqueCompositions = sorted(set(PhaseCompositionList))
+        PhaseCompositionToInt = {ph: i for i,ph in enumerate(UniqueCompositions)}
+    
     
     
     SortedUniqueTemperature = sorted(set(TempList))
@@ -240,7 +230,11 @@ def PlotterFunction(axis1_list,axis2_list,axis3_list, PhaseList, TempList, AxisL
     
     TempIndex = {T: k for k, T in enumerate(SortedUniqueTemperature)}
     LabelGrid = -1 * np.ones((N, N, len(SortedUniqueTemperature)), dtype=int)
-
+   
+    if PlotPhaseFraction:
+        FractionGrid = np.ones(LabelGrid.shape,dtype=int)
+        CompositionGrid = np.ones(LabelGrid.shape,dtype=int)
+    
     #Label Grid Values are defined here
     # vectorized index computation
     IIndex = np.rint(NormAxis2Array * (N-1)).astype(int)
@@ -248,21 +242,30 @@ def PlotterFunction(axis1_list,axis2_list,axis3_list, PhaseList, TempList, AxisL
     # clip to avoid rare float‐overshoot
     IIndex = np.clip(IIndex, 0, N-1)
     JIndex = np.clip(JIndex, 0, N-1)
-    
-    # fill in one go
-    for ii, jj, Phase, T in zip(IIndex, JIndex, PhaseList, TempList):
-        k = TempIndex[T]
-        LabelGrid[ii, jj, k] = PhaseToInt[Phase]
+         
+        
+        
+    if PlotPhaseFraction:
+        for ii, jj, Phase, PhaseFraction, PhaseComposition, T in zip(IIndex, JIndex, PhaseList, PhaseFractionList,PhaseCompositionList, TempList):
+            k = TempIndex[T]
+            LabelGrid[ii, jj, k] = PhaseToInt[Phase]
+            FractionGrid[ii, jj, k] = PhaseFractionToInt[PhaseFraction]
+            CompositionGrid[ii, jj, k] = PhaseCompositionToInt[PhaseComposition]
                 
-            
+    else:
+        for ii, jj, Phase, T in zip(IIndex, JIndex, PhaseList, TempList):
+            k = TempIndex[T]
+            LabelGrid[ii, jj, k] = PhaseToInt[Phase]
+
+  
             
     #------------------Set up Colour Scales-----------------------
 
     
     Palette   = px.colors.qualitative.Plotly
     PhaseColours = {ph: Palette[i % len(Palette)] for ph,i in PhaseToInt.items()}
-    ColourScale = [[i/(NumUniquePhases-1), PhaseColours[UniquePhases[i]]] for i in range(NumUniquePhases)]
- 
+    ColourScale = [[i/(NumUniquePhases-1), PhaseColours[UniquePhases[i]]] for i in range(NumUniquePhases)]  
+    print(ColourScale)
     
    
     #------------------Start Plotting-----------------------
@@ -281,6 +284,9 @@ def PlotterFunction(axis1_list,axis2_list,axis3_list, PhaseList, TempList, AxisL
     for k, T in enumerate(SortedUniqueTemperature):
         StartIndex = len(Fig.data)
         PhaseGrid = LabelGrid[:, :, k].astype(float)
+        if PlotPhaseFraction:
+            PhaseFractionGrid = FractionGrid[:, :, k].astype(float)
+            PhaseCompositionGrid = CompositionGrid[:, :, k].astype(float)
         # compute 2D coords
         #TGridArray = 1 - A1GridArray - CGridArray
         
@@ -292,7 +298,8 @@ def PlotterFunction(axis1_list,axis2_list,axis3_list, PhaseList, TempList, AxisL
         XGridArray[mask] = YGridArray[mask] = Z[mask] = np.nan
         
         PhaseGrid = np.where(PhaseGrid < 0, np.nan, PhaseGrid)    # any original –1 → NaN
-        PhaseGrid[mask] = np.nan 
+        PhaseGrid[mask] = np.nan
+   
         
         MissingCells = np.isnan(PhaseGrid)
         XGridArray[MissingCells] = np.nan
@@ -302,22 +309,48 @@ def PlotterFunction(axis1_list,axis2_list,axis3_list, PhaseList, TempList, AxisL
                 
         Rows, Cols = XGridArray.shape
         CustomData = np.empty((Rows, Cols), dtype=object)
-        
+  
         # raw_loX, raw_hiX are your orig_min1/orig_max1, etc.
         Raw1 = 100*(OGMin3 + A1GridArray*(OGMax3-OGMin3))
         Raw2 = 100*(OGMin2 + A2GridArray*(OGMax2-OGMin2))
         Raw3 = 100*(OGMin1 + (1-A1GridArray-A2GridArray)*(OGMax1-OGMin1))
-        
-        
+
         for i in range(Rows):
             for j in range(Cols):
-                if not mask[i, j] and (PhaseGrid[j, i] == PhaseGrid[j, i]):  # pg[j,i]==NaN fails
-                    Index = int(PhaseGrid[j, i])   # in [0..nph-1]
-                    Phase = UniquePhases[Index]
-                    CustomData[i, j] = (Raw1[i, j],Raw2[i, j],Raw3[i, j], Phase, T)
+                if not mask[i, j] and (PhaseGrid[j, i] == PhaseGrid[j, i]):  
+
+                    PhaseIndex = int(PhaseGrid[j, i])
+                    PhaseList = UniquePhases[PhaseIndex]
+
+
+                    if PlotPhaseFraction:
+                        Phases = PhaseList.split(',')
+                        FractionIndex = int(PhaseFractionGrid[j,i])
+                        CompositionIndex = int(PhaseCompositionGrid[j,i])
+                        FractionList = UniqueFractions[FractionIndex]
+                        CompositionList = UniqueCompositions[CompositionIndex]
+                        Fractions = FractionList.split(',')
+                        Compositions = CompositionList.split(',')
+                        Lines = []
+                        PhaseInfo = ()
+                        for Phase,Fraction,Composition in zip(Phases, Fractions,Compositions):
+                       
+                            if Phase == "NaN":
+                                continue
+                            Lines.append(f"{Phase}<br> Phase Fraction = {((float(Fraction))*100):.4f}% <br> Composition = {Composition}")
+                            PhaseInfo = "<br>".join(Lines) + "<br>"
+                    else:
+                        PhaseInfo = PhaseList
+
+                    
+                    CustomData[i, j] = (Raw1[i, j],Raw2[i, j],Raw3[i, j], PhaseInfo, T)
                 else:
                     CustomData[i, j] = None
-                        
+        if CompType == "Atomic":
+            CT = "at%"
+        elif CompType == 'Mass':
+            CT = "wt%"
+        #Could we use heatmap here?
         Fig.add_trace(pgo.Surface(
             x=XGridArray,
             y=YGridArray,
@@ -328,10 +361,10 @@ def PlotterFunction(axis1_list,axis2_list,axis3_list, PhaseList, TempList, AxisL
             cmin=0, 
             cmax=NumUniquePhases-1, 
             showscale=False,
-            hovertemplate=(    f"{A1}: %{{customdata[2]:.{Decimals}f}} wt%<br>"
-            f"{A2}: %{{customdata[1]:.{Decimals}f}} wt%<br>"
-            f"{A3}: %{{customdata[0]:.{Decimals}f}} wt%<br>"
-            "Phase: %{customdata[3]}<br>"
+            hovertemplate=(    f"{A1}: %{{customdata[2]:.{Decimals}f}} {CT}<br>"
+            f"{A2}: %{{customdata[1]:.{Decimals}f}} {CT}<br>"
+            f"{A3}: %{{customdata[0]:.{Decimals}f}} {CT}<br>"
+            "Phases Present:<br> %{customdata[3]}<br>"
             "Temp: %{customdata[4]:.0f} K<br>"
             "<extra></extra>"
             ),
@@ -421,25 +454,7 @@ def PlotterFunction(axis1_list,axis2_list,axis3_list, PhaseList, TempList, AxisL
         
         
      #------------------Add 3D Volumes-----------------------
-     
-    # 1) plot the 3D mesh volumes (unchanged)
-    
-        """VArray = VGridArray*100            # shape (N,N)
-        CArray = CGridArray*100
-        UArray = (1.0 - VGridArray - CGridArray)*100
-        
-        rows, cols = XGridArray.shape
-        cd = np.empty((rows, cols), dtype=object)
-        
-        for i in range(rows):
-            for j in range(cols):
-                if not mask[i, j]:
-                    ph = unique_ph[int(pg[i, j])]
-                    # pack the triple + phase + temp
-                    cd[i, j] = (VArray[i, j], CArray[i, j], UArray[i, j], ph, T)
-                else:
-                    cd[i, j] = None"""
-    
+         
     
     VolumeTraceIndex =[]
     for Phase in UniquePhases:
@@ -563,7 +578,7 @@ def PlotterFunction(axis1_list,axis2_list,axis3_list, PhaseList, TempList, AxisL
         Steps.append(dict(
             method="update",
             args=[{"visible": vis_for(i)}],
-            label=f"{int(T)} K"))
+            label=f"{int(T)} \u00B0C"))
         
     
     Fig.update_layout(
@@ -597,7 +612,7 @@ def PlotterFunction(axis1_list,axis2_list,axis3_list, PhaseList, TempList, AxisL
         scene=dict(
             xaxis=dict(title="",showticklabels=False,ticks='', showgrid=False, zeroline=False,showbackground=False),
             yaxis=dict(title="",showticklabels=False,ticks='', showgrid=False, zeroline=False,showbackground=False),
-            zaxis=dict(title="Temperature (K)")
+            zaxis=dict(title="Temperature (\u00B0C)",showbackground=False)
         )
         
     )
@@ -642,6 +657,8 @@ for Line in Lines:
 
 AxisDefs = [grp.split(',') for grp in MetaData['axis_defs'].split(';')]
 AxisLabels = MetaData['axis_names'].split(';')
+CompType = MetaData ['comp_type']
+print(CompType)
 
 
 # Flatten list of all elements for initial read-in
@@ -650,7 +667,7 @@ AllElements = sorted({el for group in AxisDefs for el in group})
 Read = csv.DictReader(DataLines)
 
 ElementList = {el: [] for el in AllElements}
-TempList, PhaseList = [], []
+TempList, PhaseList, PhaseFractionList, PhaseCompositionList = [], [], [], []
 TempColumn = Read.fieldnames[0]
 
 # Read data into elemental lists
@@ -662,6 +679,11 @@ for Row in Read:
     for el in AllElements:
         Col = f"{el}/Mass %"
         ElementList[el].append(float(Row[Col]))
+    if PlotPhaseFraction == True:
+        PhaseFractionList.append(Row['Phase Fractions'])
+        PhaseCompositionList.append(Row['Phase Compositions'])
+       
+    
 
 # Now sum grouped elements into pseudo-axes
 AxisLists = []
@@ -692,15 +714,17 @@ Axis1List = A1Array[Mask].tolist()
 Axis2List = A2Array[Mask].tolist()
 Axis3List = A3Array[Mask].tolist()
 
-PhaseList = [phase for keep, phase in zip(Mask, PhaseList) if keep]
 TempList     = [T for keep, T in zip(Mask, TempList) if keep]
- 
+TempList = [x - 275 for x in TempList]
+PhaseList = [Phase for keep, Phase in zip(Mask, PhaseList) if keep]
 
-
+if PlotPhaseFraction == True:
+    PhaseFractionList = [PhaseFraction for keep, PhaseFraction in zip(Mask, PhaseFractionList) if keep]
+    PhaseCompositionList = [PhaseComposition for keep, PhaseComposition in zip(Mask, PhaseCompositionList) if keep]
 
 Name = filename[:-4]
 
 
-PlotterFunction(Axis1List, Axis2List, Axis3List, PhaseList,
-                TempList, AxisLabels,Name, TempRes=None, sigma=None)
+PlotterFunction(Axis1List, Axis2List, Axis3List, PhaseList,PhaseFractionList,PhaseCompositionList,
+                TempList, AxisLabels,Name, CompType, TempRes=None, sigma=None)
 

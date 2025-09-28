@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+"""
+This version is in testing...It is not suitible for external use. 
+This version seeks to develop the 'Phase Fraction' capability
+"""
+
 """
 This script allows the user to generate csv files containing ternary datasets, comprising of the phases present at a 
 temperature(k) and elemental ratios (Mass%) ternary point. It can be used for metallic ternary systems, or for 
@@ -8,7 +14,7 @@ Anisothermal Plotter.
 
 This code was written by Sam Yeates(The University of Sheffield) as part of his PhD, supervised by Prof. Russell Goodall 
 and Prof. Katerina Christofidou. Assistance in ThermoCalc handling was given by Carl-Magnus Lancelot(ThermoCalc Software AB)  
-This version of the script was finalised on 28/04/2025.
+This version of the script was finalised on 11/06/2025.
 
 DISCLAIMER - This code does not carry out any CALPHAD or Thermodynamic modelling. It purely uses TC_Python to generate
 phase data based on ThermoCalc calculations and databases. Therefore data outputted from this code is only ever as accurate
@@ -37,7 +43,7 @@ os.environ['LSHOST'] = 'mse-lic1.shef.ac.uk'
 
 """This section is where you set up your (psuedo)ternary calculation. Open for set-up instructions
 
-    First, select a suitible databse, and check which database is most sutiible for your elemental range.
+    First, select a suitible databse, and check which database is most suitible for your elemental range.
     WARNING - This code will make no checks for this.
 
     Second, create your temperature range and step size in Kelvin. In the authors experience, a Tres of 25k gives a good starting visual
@@ -155,34 +161,41 @@ os.environ['LSHOST'] = 'mse-lic1.shef.ac.uk'
 #Set Up the database
 Database = "SSOL8"
 
-#Temperature/Compositional Inputs in K
-Tmin = 500
-Tmax = 1250
-Tres = 25
+#Define if you wish to produce Phase Fraction Data
+GeneratePhaseFraction = True #SHould be true. If false will only return stable phases
+
+#Temperature Inputs in K
+Tmin = 1000
+Tmax = 1400 
+Tres = 10
+
+#Pressue Inputs in Pa
+Pressure = 100000 #Set to desired pressure. For default atomos, set to 100000
 
 
 #Set up your axis
+MassFraction = False #If true, calculaiton runs in Mass Faction compositions, if False, calculation runs in Mole Faction compositions
 #Set up Axis 1
-A1Es = ["Al"]
-A1EComps = [1.00] #Form of [Element,Element,Element,...]
+A1Es = ["Ta","V","Ti","W","Cr"]
+A1EComps = [0.30,0.30,0.30,0.05,0.05] #Form of [Element,Element,Element,...]
 
 
 #Set up Axis 2
-A2Es = ["Si"]
+A2Es = ["C"]
 A2EComps = [1.00] #Handles psuedo ternary composition ratios. For Metallic Ternary, set to [1.0]
-A2min = 0.0
-A2max = 100.0 #Defines upper wt% range of axis. For Metallic Ternaries, set to 100.0
-A2res = 1.0
+A2max = 0.02 #Defines upper wt% range of axis. For Metallic Ternaries, set to 100.0
+A2res = 0.0002
 #Set up Axis 3
-A3Es = ["Cu"]
+A3Es = ["N"]
 A3EComps = [1.00] #Handles psuedo ternary composition ratios. For Metallic Ternary, set to [1.0]
-A3min = 0.0
-A3max = 100.0 #For Metallic Ternaries, set to 100.0
-A3res = 1.0
+A3max =0.02 #For Metallic Ternaries, set to 100.0
+A3res = 0.0002
 
 #%% End of User Inputs - DO NOT EDIT CODE BEYOND THIS POINT
 
 # Define the two min/max lists for axis 2 & 3 for filename later
+A2min = 0.0
+A3min = 0.0
 Mins = [A2min, A3min]
 Maxs = [A2max, A3max]
 
@@ -194,10 +207,17 @@ A3min = A3min/100.00
 A3max = A3max/100.00
 A3res = A3res/100.00
 
+
 #Build Axis Definitions and Names
 AxisDef = [A1Es,A2Es,A3Es]
 AxisComps = [A1EComps, A2EComps, A3EComps]
 AxisNames = []
+
+if MassFraction == False:
+    CT = "at%"
+elif MassFraction:
+    CT = "wt%"
+
 
 ElementList = []
 for Axis in AxisDef:
@@ -218,9 +238,14 @@ for Elements, Compositions in zip(AxisDef, AxisComps):
 
 # Define calculation as a function, because concurrent futures requires functions to parallellise
 def RunIsothermCalculation(Parameters):
-
+    #----  
+    PhaseFractions = []
+    PhaseCompositions = []
+    ComponentFractions = []
+    #----  
     Rows = []
     T = float(Parameters["T"])
+
     with TCPython() as start:
         BaseCalc = (
             start
@@ -230,7 +255,7 @@ def RunIsothermCalculation(Parameters):
             .with_single_equilibrium_calculation()
             .enable_global_minimization()
             .set_condition(ThermodynamicQuantity.temperature(), T)
-            #.set_condition(ThermodynamicQuantity.pressure(), 2000000000000.0)
+            .set_condition(ThermodynamicQuantity.pressure(), Pressure)
             )
         
         #results = {}
@@ -246,32 +271,73 @@ def RunIsothermCalculation(Parameters):
                     for AxisFraction, Elements, Composition in zip(AxisRatio, AxisDef, AxisComps):
                         for Element, Composition in zip(Elements, Composition):
                             # if you want weight‐percent, multiply by 100 here
-                            TotalElementalComp[Element] = round(AxisFraction * Composition, 9)
+                            TotalElementalComp[Element] = round(AxisFraction * Composition, 12)
                    
-                  
-                    for i, (Element, Fraction) in enumerate(TotalElementalComp.items()):
-                        if i == 0:           # skip index 0
-                            continue
-                        Calc = (IsoCalc.
-                                set_condition(ThermodynamicQuantity.mass_fraction_of_a_component(Element),Fraction))
-                        
+                    if MassFraction:
+                        for i, (Element, Fraction) in enumerate(TotalElementalComp.items()):
+                            if i == 0:           # skip index 0
+                                continue
+                            Calc = (IsoCalc.
+                                    set_condition(ThermodynamicQuantity.mass_fraction_of_a_component(Element),Fraction))
+                            
+                    elif MassFraction == False:
+                        for i, (Element, Fraction) in enumerate(TotalElementalComp.items()):
+                            if i == 0:           # skip index 0
+                                continue
+                            Calc = (IsoCalc.
+                                    set_condition(ThermodynamicQuantity.mole_fraction_of_a_component(Element),Fraction))    
                     try:
                         
-                        PointPhases = Calc.calculate().get_stable_phases()
-    
+                        ResultObject = BaseCalc.calculate()
+                        PointPhases = ResultObject.get_stable_phases()
+                        
+                        if GeneratePhaseFraction ==True:
+                            for Phase in PointPhases:
+                                PhaseFraction = ResultObject.get_value_of(f"NPM({Phase})")
+                                PhaseFractions.append(PhaseFraction)
+                                
+                                for Element in ElementList:
+                                    ComponentFraction = ResultObject.get_value_of(f"X({Phase},{Element})")
+                                    if ComponentFraction < 0.0000:
+                                        continue
+                                    ComponentFractions.append(f"{Element}:{(ComponentFraction*100):0.2f}%")
+                                    
+                                PhaseCompositions.append("-".join(ComponentFractions))
+                                ComponentFractions = []                        
+                            
+                 
                     except CalculationException:
-    
-                        #print("\nThere were too many iterations to process")
+
+                        print("\nThere were too many iterations to process")
                         PointPhases = "NaN"
-                
+                            
+
+                            
+                    #print(PhaseFractions)
+                    #----
+                    
                     Row = {
                         "Temp/K": T,}  
                     for Element, Fraction in TotalElementalComp.items():
-                        Row[f"{Element}/Mass %"] = round(Fraction, 9)
+                        Row[f"{Element}/Mass %"] = round(Fraction, 12)
                     # add the phases column
                     Row["Phases"] = "NaN" if PointPhases == "NaN" else ", ".join(PointPhases)
-    
+                    
+                    #----  
+                    if GeneratePhaseFraction ==True:
+                            if PointPhases == "NaN":
+                                Row["Phase Fractions"] = "NaN"
+                                Row["Phase Compositions"] = "NaN"
+                            else:
+                                # convert each numeric fraction to a string first
+                                Row["Phase Fractions"] = ", ".join(str(Fraction) for Fraction in PhaseFractions)
+                                Row["Phase Compositions"] = ", ".join(PhaseCompositions)
+                    #---- 
+                    
                     Rows.append(Row)
+                    PointPhases = []
+                    PhaseFractions =[]
+                    PhaseCompositions = []
                     
     return Rows
 
@@ -302,15 +368,18 @@ if __name__ == '__main__':
             results.append(calc_results)
         """
 
-    
+
     # flatten the list of lists
     ResultsFlat = [row for sublist in results for row in sublist]
 
     # build  column list dynamically:
     #   first the temperature, then one column per element, then phases
     ElementColumn = [f"{Element}/Mass %" for Element in ElementList]
-    Columns  = ["Temp/K"] + ElementColumn + ["Phases"]
-
+    if GeneratePhaseFraction == True:
+        Columns  = ["Temp/K"] + ElementColumn + ["Phases"] + ["Phase Fractions"] + ["Phase Compositions"]
+    else:
+        Columns  = ["Temp/K"] + ElementColumn + ["Phases"]
+        
     Results = pd.DataFrame(ResultsFlat, columns=Columns)
     print(Results)
 
@@ -320,26 +389,44 @@ if __name__ == '__main__':
     
     for i in (1, 2):
         label = AxisNames[i]
-        AxisMax, AxisMin = Mins[i-1], Maxs[i-1]
+        Label = f"{label}"
+        AxisMin, AxisMax = Mins[i-1], Maxs[i-1]
         # only include range if it isn't the full 0–100
         if not (AxisMin == 0 and AxisMax == 100):
             # strip any trailing zeros on floats, e.g. 0.100 -> 0.1
             StrippedAxisMin = str(AxisMin).rstrip('0').rstrip('.')  
             StrippedAxisMax = str(AxisMax).rstrip('0').rstrip('.')
-            Label = f"{label}({StrippedAxisMin}-{StrippedAxisMax}wt%,{A2res})"
+            Label = f"{label}({StrippedAxisMin}-{StrippedAxisMax}{CT},{A2res})"
         NameParts.append(Label)
+
+            
+            
+        
     
     #Add the temperature window
-    Filename = "_".join(NameParts) + f"-{Tmin}K-{Tmax}K-{Tres}K step.csv"
+    Filename = "_".join(NameParts) + f"-{Tmin}K-{Tmax}K-{Tres}K step"
+    
+    if GeneratePhaseFraction == True:
+        Filename = Filename + "_with_phase_fractions.csv"
+    
+    else:
+        Filename = Filename + ".csv"
     print(Filename)
     
     AxisDefStr  = ";".join(",".join(Group) for Group in AxisDef)
     AxisNameStr = ";".join(AxisNames)
     
+    if MassFraction:
+        CompType = "Mass"
+    elif MassFraction == False:
+        CompType = "Atomic"
+    
+    
     with open(Filename, "w", newline="") as f:
         # front-matter must exactly match the loader’s keys:
         f.write(f"# axis_defs={AxisDefStr}\n")
         f.write(f"# axis_names={AxisNameStr}\n")
+        f.write(f"# comp_type ={CompType}\n")
         
         # now write your real CSV (comma-separated by default)
         Results.to_csv(f, index=False)
