@@ -7,7 +7,7 @@ in conjunction with a second script; Anisothermal Ternary Generator.
 
 This code was written by Sam Yeates (The University of Sheffield) as part of his PhD, supervised by Prof. Russell Goodall 
 and Prof. Katerina Christofidou. 
-This version of the script was finalised on 11/06/2025.
+This version of the script was finalised on 20/09/2025.
 
 DISCLAIMER - This code does not carry out any CALPHAD or Thermodynamic modelling. It purely uses TC_Python to extract
 phase data. Therefore data outputted from this code is only ever as accurate as ThermoCalc. Users should ensure they 
@@ -31,16 +31,11 @@ import pandas as pd
 
 #%% Select your file
 
-"""
+
 # Create a hidden root window (we only want the file dialog)
 root = tk.Tk()
 root.withdraw()
 
-# Open the file dialog
-filename = filedialog.askopenfilename(
-    title="Select a CSV file",
-    filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
-)
 
 
 # Open file picker and assign selected file path to 'filename'
@@ -50,8 +45,14 @@ filename = filedialog.askopenfilename(
 )
 
 print(f"Selected file: {filename}")
-"""
+
+
+""" 
+#If manual file path entry is prefered, that can be done by commenting out the above  
+#and instead using the below vaiable. 
+
 filename = "Ta-30V-30Ti-5W-5Cr_C(0-0.02at%,2e-06)_N(0-0.02at%,2e-06)-1000K-1400K-10K step_with_phase_fractions.csv"
+"""
 if "with_phase_fractions" in filename:
     PlotPhaseFraction = True
     print("With Phase Fractions")
@@ -728,3 +729,5 @@ Name = filename[:-4]
 PlotterFunction(Axis1List, Axis2List, Axis3List, PhaseList,PhaseFractionList,PhaseCompositionList,
                 TempList, AxisLabels,Name, CompType, TempRes=None, sigma=None)
 
+
+#For next version - add manual output 
